@@ -1,0 +1,65 @@
+import unittest
+import os
+import tempfile
+import shutil
+import sys
+
+# Adjust path to import smith_tools
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+
+from smith_tools.dynamic_planner import DynamicPlanner
+
+
+class TestDynamicPlanner(unittest.TestCase):
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp(prefix="test_dynamic_planner_")
+
+    def tearDown(self):
+        shutil.rmtree(self.temp_dir)
+
+    def test_replace_library_plan(self):
+        parsed = {"intent": "replace_library", "old_lib": "requests", "new_lib": "httpx"}
+        planner = DynamicPlanner(parsed)
+        plan = planner.create_plan()
+        # Should create 4 steps: human feedback, modify, test, lint
+        self.assertEqual(len(plan), 4)
+        self.assertEqual(plan[0]["action"], "human_feedback")
+        self.assertEqual(plan[1]["action"], "modify_code")
+        self.assertEqual(plan[2]["action"], "verify_code")
+        self.assertEqual(plan[3]["action"], "verify_code")
+        # Dependencies: modify depends on feedback, tests depend on modify
+        self.assertEqual(plan[1]["depends_on"], [plan[0]["id"]])
+        self.assertIn(plan[1]["id"], plan[2]["depends_on"])
+
+    def test_update_dependency_plan(self):
+        parsed = {"intent": "update_dependency", "package": "pandas", "version": "2.0"}
+        planner = DynamicPlanner(parsed)
+        plan = planner.create_plan()
+        self.assertEqual(len(plan), 4)
+        self.assertEqual(plan[1]["operation"], "update_dependency")
+        self.assertEqual(plan[1]["package"], "pandas")
+        self.assertEqual(plan[1]["version"], "2.0")
+
+    def test_add_endpoint_inference(self):
+        # Create a project with a requirement specifying flask
+        req_path = os.path.join(self.temp_dir, "requirements.txt")
+        with open(req_path, "w", encoding="utf-8") as f:
+            f.write("flask==2.2.0\n")
+        parsed = {"intent": "add_endpoint", "path": "/hello", "framework": None}
+        planner = DynamicPlanner(parsed, project_root=self.temp_dir)
+        plan = planner.create_plan()
+        # The modify_code step should include framework 'flask'
+        modify_step = next(s for s in plan if s["action"] == "modify_code")
+        self.assertEqual(modify_step.get("framework"), "flask")
+
+    def test_refactor_godobject_plan(self):
+        parsed = {"intent": "refactor_godobject", "file": "GodObject.py"}
+        planner = DynamicPlanner(parsed)
+        plan = planner.create_plan()
+        # Should create 3 steps: human feedback, modify, test
+        self.assertEqual(len(plan), 3)
+        self.assertEqual(plan[1]["operation"], "refactor_godobject")
+
+
+if __name__ == "__main__":
+    unittest.main()
