@@ -11,11 +11,14 @@ returns the result, leaving planning and state management to the caller.
 from __future__ import annotations
 
 from typing import Dict, Any
+import os
+import shutil
 
 # We still import the "hands" of the agent
 from .project_verifier import ProjectVerifier
 from .human_feedback_tool import HumanFeedbackTool
 from . import code_ops
+from . import safety_checks
 
 
 class PlanExecutor:
@@ -89,32 +92,53 @@ class PlanExecutor:
 
         elif action == "modify_code":
             operation = step.get("operation")
+            target_file = step.get("file")
+            backup_path = None
+            if target_file:
+                abs_path = (
+                    target_file
+                    if os.path.isabs(target_file)
+                    else os.path.join(self.project_root, target_file)
+                )
+                if not safety_checks.check_file_exists(abs_path):
+                    return {"status": "failed", "error": f"File check failed for {target_file}"}
+                backup_path = safety_checks.create_backup(abs_path)
             # This is a sub-dispatcher for code modification operations.
             if operation == "replace_library":
                 summary = code_ops.replace_library(
                     self.project_root, step.get("old_lib"), step.get("new_lib")
                 )
-                return {"status": "succeeded", "summary": summary}
+                result = {"status": "succeeded", "summary": summary}
             elif operation == "update_dependency":
                 summary = code_ops.update_dependency(
                     self.project_root, step.get("package"), step.get("version")
                 )
-                return {"status": "succeeded", "summary": summary}
+                result = {"status": "succeeded", "summary": summary}
             elif operation == "add_endpoint":
                 summary = code_ops.add_fastapi_endpoint(
                     self.project_root, step.get("path"), step.get("framework")
                 )
-                return {"status": "succeeded", "summary": summary}
+                result = {"status": "succeeded", "summary": summary}
             elif operation == "refactor_godobject":
                 summary = code_ops.refactor_godobject(self.project_root, step.get("file"))
                 if summary.get("status") == "failed":
                     return {"status": "failed", "error": summary.get("error")}
-                return {"status": "succeeded", "summary": summary}
+                result = {"status": "succeeded", "summary": summary}
             else:
                 return {
                     "status": "failed",
                     "error": f"Unknown modify_code operation: {operation}",
                 }
+
+            if target_file and backup_path:
+                with open(abs_path, "r", encoding="utf-8") as f:
+                    code = f.read()
+                valid, err = safety_checks.validate_python_syntax(code)
+                if not valid:
+                    shutil.copy2(backup_path, abs_path)
+                    return {"status": "failed", "error": f"Syntax error after modification: {err}"}
+
+            return result
 
         elif action == "verify_code":
             tool = step.get("tool")

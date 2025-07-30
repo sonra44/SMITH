@@ -16,6 +16,13 @@ def main():
     This is now primarily for direct command-line execution of the agent logic,
     without the TUI.
     """
+    if os.getenv("GEMINI_SESSION"):
+        print("🤖 Detected Gemini CLI session - using inherited auth")
+        os.environ["SMITH_NO_API"] = "false"
+    else:
+        print("🤖 No Gemini session - using local rules")
+        os.environ["SMITH_NO_API"] = "true"
+
     parser = argparse.ArgumentParser(
         description="SMITH Agent: An AI orchestrator for development tasks."
     )

@@ -6,6 +6,13 @@ from datetime import datetime, timezone
 from .context_engine import analyze_code  # Use the refactored context_engine
 
 
+class ProjectNavigator:
+    """Simple wrapper to create project maps."""
+
+    def create_project_map(self, directory_path: str):
+        return create_project_map(directory_path)
+
+
 def find_python_files(directory):
     """Recursively finds all Python files in a given directory, ignoring common virtualenv folders."""
     python_files = []

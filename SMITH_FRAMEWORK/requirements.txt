@@ -3,3 +3,5 @@ pytest
 textual[dev]
 python-dotenv
 filelock
+pyyaml
+prompt_toolkit
