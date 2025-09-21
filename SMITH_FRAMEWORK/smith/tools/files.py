@@ -19,6 +19,11 @@ class FilesTool:
             target.relative_to(self._root)
         except ValueError as error:
             raise SmithError("Attempt to escape sandbox root") from error
+        current = self._root
+        for part in target.relative_to(self._root).parts:
+            current = current / part
+            if current.is_symlink():
+                raise SmithError(f"Symlink detected in sandbox path: {current}")
         return target
 
     def read(self, relative_path: str) -> str:

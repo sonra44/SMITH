@@ -21,9 +21,7 @@ class AllowListPolicy(ExecutionPolicy):
         self._allowed = set(allowed_binaries)
 
     def is_allowed(self, command: Sequence[str]) -> bool:
-        if not command:
-            return False
-        return command[0] in self._allowed
+        return False if not command else command[0] in self._allowed
 
 
 class DenyAllPolicy(ExecutionPolicy):

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-import sys
-
 import typer
 
 from smith.core.fsm import FiniteStateMachine, State, Transition
 from smith.core.planner import Goal, Planner
-from smith.core.registry import policy_registry, tool_registry
+from smith.core.registry import (
+    policy_registry,
+    register_default_components,
+    tool_registry,
+)
 from smith.io.config import SmithConfig
 from smith.io.telemetry import JSONTelemetryLogger, TelemetryEvent, configure_logging
 from smith.utils.errors import SmithError
@@ -20,7 +22,8 @@ def _bootstrap(goal: str) -> None:
     """Prepare subsystems for execution."""
 
     config = SmithConfig.load()
-    logger = configure_logging(stream=sys.stdout)
+    register_default_components()
+    logger = configure_logging(destination=config.telemetry_stream)
     telemetry = JSONTelemetryLogger(logger)
     telemetry.emit(
         TelemetryEvent(
@@ -51,7 +54,45 @@ def _bootstrap(goal: str) -> None:
     telemetry.emit(
         TelemetryEvent(
             code=210,
-            message="fsm-initial-state",
+            message="fsm-state",
+            payload={"state": machine.current.name},
+        )
+    )
+    executing_state = states[1].name
+    telemetry.emit(
+        TelemetryEvent(
+            code=220,
+            message="fsm-transition",
+            payload={
+                "from": machine.current.name,
+                "to": executing_state,
+            },
+        )
+    )
+    machine.transition(executing_state)
+    telemetry.emit(
+        TelemetryEvent(
+            code=230,
+            message="fsm-state",
+            payload={"state": machine.current.name},
+        )
+    )
+    done_state = states[2].name
+    telemetry.emit(
+        TelemetryEvent(
+            code=240,
+            message="fsm-transition",
+            payload={
+                "from": machine.current.name,
+                "to": done_state,
+            },
+        )
+    )
+    machine.transition(done_state)
+    telemetry.emit(
+        TelemetryEvent(
+            code=250,
+            message="fsm-state",
             payload={"state": machine.current.name},
         )
     )

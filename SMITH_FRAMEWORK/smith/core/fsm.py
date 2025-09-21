@@ -58,9 +58,10 @@ class FiniteStateMachine:
         """Check whether a transition to *target* is allowed."""
 
         for transition in self._transitions.get(self._current.name, []):
-            if transition.target.name == target:
-                if transition.guard is None or transition.guard(self):
-                    return True
+            if transition.target.name == target and (
+                transition.guard is None or transition.guard(self)
+            ):
+                return True
         return False
 
     def transition(self, target: str) -> State:

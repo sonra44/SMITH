@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any
+from pathlib import Path
+from typing import Any, TextIO
 
 _EVENT_CODE_MIN = 100
 _EVENT_CODE_MAX = 999
@@ -63,9 +65,10 @@ def _map_severity(severity: str) -> int:
     return levels.get(severity.lower(), logging.INFO)
 
 
-def configure_logging(*, stream: Any) -> logging.Logger:
-    """Configure logging to output JSON to the provided stream."""
+def configure_logging(*, destination: TextIO | str) -> logging.Logger:
+    """Configure logging to output JSON to the provided destination."""
 
+    stream = _resolve_destination(destination)
     logger = logging.getLogger("smith")
     logger.setLevel(logging.INFO)
     handler = logging.StreamHandler(stream)
@@ -75,3 +78,16 @@ def configure_logging(*, stream: Any) -> logging.Logger:
     logging.getLogger("smith.telemetry").handlers = logger.handlers
     logging.getLogger("smith.telemetry").setLevel(logging.INFO)
     return logger
+
+
+def _resolve_destination(destination: TextIO | str) -> TextIO:
+    if isinstance(destination, str):
+        normalized = destination.strip().lower()
+        if normalized == "stdout":
+            return sys.stdout
+        if normalized == "stderr":
+            return sys.stderr
+        path = Path(destination).expanduser().resolve()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        return path.open("a", encoding="utf-8")
+    return destination

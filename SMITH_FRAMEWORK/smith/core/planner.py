@@ -51,8 +51,12 @@ class Planner:
             steps.append(
                 PlanStep(name="analyze_goal", required_state=available_states[0])
             )
-        steps.append(PlanStep(name="synthesize_plan"))
-        steps.append(PlanStep(name="execute_plan"))
+        steps.extend(
+            (
+                PlanStep(name="synthesize_plan"),
+                PlanStep(name="execute_plan"),
+            )
+        )
         if self._memory is not None:
             steps.append(PlanStep(name="store_outcome"))
         return steps

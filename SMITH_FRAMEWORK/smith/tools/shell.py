@@ -29,17 +29,18 @@ class ShellTool:
         if isinstance(command, str):
             command_args = shlex.split(command)
         else:
-            command_args = list(command)
+            command_args = [str(part) for part in command]
         if not command_args:
             raise SmithError("Shell command cannot be empty")
-        if not self._policy.is_allowed(command_args):
+        command_tuple = tuple(command_args)
+        if not self._policy.is_allowed(command_tuple):
             raise SmithError("Command is rejected by the execution policy")
-        process = subprocess.run(
-            command_args,
+        return subprocess.run(
+            command_tuple,
             capture_output=True,
             cwd=self._sandbox_root,
             text=True,
             timeout=timeout,
             check=False,
+            shell=False,
         )
-        return process
